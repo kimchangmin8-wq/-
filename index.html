@@ -1,0 +1,955 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wordfall Typing</title>
+  <style>
+    :root {
+      --ink: #101010;
+      --paper: #f5f5f2;
+      --muted: #747474;
+      --line: #d5d5cf;
+      --ground: #181818;
+      --soft-blue: #b9d8ff;
+      --soft-pink: #ffd0dc;
+      --soft-mint: #c8efd9;
+      --block-h: 58px;
+      --ground-h: 118px;
+      --tray-h: 82px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      max-width: 100vw;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .topbar {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      align-items: center;
+      gap: 16px;
+      min-height: 72px;
+      padding: 14px clamp(16px, 4vw, 42px);
+      border-bottom: 1px solid var(--line);
+      background: rgba(245, 245, 242, 0.95);
+      z-index: 20;
+      overflow: hidden;
+    }
+
+    .brand {
+      min-width: 0;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .stats {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .stat strong {
+      display: block;
+      color: var(--ink);
+      font-size: 18px;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-self: end;
+    }
+
+    .icon-button {
+      display: inline-grid;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      border: 1px solid var(--ink);
+      border-radius: 4px;
+      background: var(--ink);
+      color: var(--paper);
+      cursor: pointer;
+      transition: transform 140ms ease, background 140ms ease, color 140ms ease;
+    }
+
+    .icon-button:hover {
+      transform: translateY(-1px);
+    }
+
+    .icon-button.secondary {
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .icon-button svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: square;
+      stroke-linejoin: miter;
+    }
+
+    .stage {
+      position: relative;
+      overflow: hidden;
+      width: 100vw;
+      max-width: 100vw;
+      min-height: 0;
+      background:
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.72), rgba(245, 245, 242, 0.06) 34%),
+        repeating-linear-gradient(to bottom, transparent 0 55px, rgba(16, 16, 16, 0.035) 56px);
+    }
+
+    .sky {
+      position: absolute;
+      inset: 0 0 var(--ground-h) 0;
+      overflow: hidden;
+    }
+
+    .ground {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: var(--ground-h);
+      background: var(--ground);
+      border-top: 2px solid var(--ink);
+      overflow: hidden;
+    }
+
+    .ground::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 12px;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .line-row {
+      position: absolute;
+      left: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      height: var(--block-h);
+      width: max-content;
+      will-change: transform;
+    }
+
+    .word-block {
+      position: relative;
+      display: inline-grid;
+      place-items: center;
+      min-width: 96px;
+      height: var(--block-h);
+      padding: 0 28px;
+      border: 1px solid #202020;
+      border-radius: 2px;
+      background: #ededeb;
+      box-shadow: 0 3px 0 #202020;
+      color: #151515;
+      font-size: 29px;
+      font-weight: 750;
+      line-height: 1;
+      white-space: nowrap;
+      user-select: none;
+      transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+    }
+
+    .word-block.active {
+      background: #151515;
+      color: #f7f7f0;
+    }
+
+    .word-block.typed {
+      position: fixed;
+      z-index: 9;
+      background: var(--soft-blue);
+      border-color: #17202a;
+      box-shadow: 0 0 0 4px rgba(185, 216, 255, 0.35), 0 3px 0 #202020;
+      animation: fallToGround 880ms cubic-bezier(.16, .82, .18, 1) forwards;
+    }
+
+    .word-block.settled {
+      position: absolute;
+      z-index: 7;
+      background: #e8e1cc;
+      color: #111;
+      animation: settlePop 260ms ease-out;
+    }
+
+    .word-block.clearing {
+      animation: clearFlash 720ms ease-in forwards;
+    }
+
+    .input-strip {
+      position: absolute;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 74px;
+      gap: 8px;
+      width: var(--input-w, min(760px, calc(100vw - 34px)));
+      height: var(--tray-h);
+      padding: 8px;
+      border: 7px solid #454545;
+      border-radius: 0;
+      background: #9a9a9a;
+      z-index: 18;
+      will-change: width, transform;
+      transition: width 280ms cubic-bezier(.18, .82, .24, 1), transform 280ms cubic-bezier(.18, .82, .24, 1);
+    }
+
+    .input-strip.resizing {
+      animation: inputResizePulse 300ms cubic-bezier(.18, .82, .24, 1);
+    }
+
+    .landing-lane {
+      position: absolute;
+      inset: 8px 90px 8px 8px;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    #typingInput {
+      width: 100%;
+      height: 100%;
+      padding: 0 26px;
+      border: 0;
+      border-radius: 0;
+      background: rgba(246, 246, 241, 0.88);
+      color: var(--ink);
+      outline: none;
+      font-size: 30px;
+      font-weight: 800;
+      z-index: 2;
+    }
+
+    #typingInput:focus {
+      box-shadow: inset 0 0 0 4px rgba(185, 216, 255, 0.7);
+    }
+
+    .submit {
+      min-width: 0;
+      height: 100%;
+      border: 0;
+      border-radius: 0;
+      background: #555;
+      color: var(--paper);
+      font-size: 24px;
+      font-weight: 900;
+      cursor: pointer;
+      z-index: 3;
+    }
+
+    .notice {
+      position: absolute;
+      left: 50%;
+      top: 32px;
+      transform: translateX(-50%);
+      width: min(520px, calc(100vw - 32px));
+      padding: 13px 16px;
+      background: rgba(245, 245, 242, 0.94);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+      text-align: center;
+      z-index: 15;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 180ms ease;
+    }
+
+    .notice.hidden {
+      opacity: 0;
+    }
+
+    .particle {
+      position: fixed;
+      width: var(--size, 9px);
+      height: var(--size, 9px);
+      border-radius: 2px;
+      background: var(--soft-pink);
+      z-index: 30;
+      pointer-events: none;
+      box-shadow: 0 2px 0 rgba(16, 16, 16, 0.25);
+      animation: particleBurst 620ms ease-out forwards;
+    }
+
+    .flash-line {
+      position: fixed;
+      height: var(--block-h);
+      background: rgba(255, 208, 220, 0.45);
+      z-index: 6;
+      pointer-events: none;
+      animation: lineFlash 720ms ease-out forwards;
+    }
+
+    @keyframes fallToGround {
+      0% {
+        transform: translate3d(0, 0, 0);
+      }
+      58% {
+        transform: translate3d(var(--fall-x), calc(var(--fall-y) - 18px), 0);
+      }
+      76% {
+        transform: translate3d(var(--fall-x), var(--fall-y), 0) scale(1.04, 0.92);
+      }
+      100% {
+        transform: translate3d(var(--fall-x), var(--fall-y), 0) scale(1);
+      }
+    }
+
+    @keyframes settlePop {
+      0% {
+        transform: translateY(-18px) scale(1.02, 0.92);
+      }
+      58% {
+        transform: translateY(0) scale(1.07, 0.86);
+      }
+      100% {
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes clearFlash {
+      0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        background: var(--soft-pink);
+      }
+      42% {
+        opacity: 1;
+        transform: translateY(-8px) scale(1.1);
+        background: var(--soft-blue);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-28px) scale(1.22);
+        background: var(--soft-mint);
+      }
+    }
+
+    @keyframes particleBurst {
+      0% {
+        opacity: 0.9;
+        transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translate3d(var(--dx), var(--dy), 0) rotate(var(--spin, 160deg)) scale(0.2);
+      }
+    }
+
+    @keyframes inputResizePulse {
+      0% {
+        transform: translateX(-50%) scaleX(0.985);
+      }
+      58% {
+        transform: translateX(-50%) scaleX(1.018);
+      }
+      100% {
+        transform: translateX(-50%) scaleX(1);
+      }
+    }
+
+    @keyframes lineFlash {
+      0% {
+        opacity: 0.85;
+        transform: scaleX(0.92);
+      }
+      100% {
+        opacity: 0;
+        transform: scaleX(1.04);
+      }
+    }
+
+    @media (max-width: 720px) {
+      :root {
+        --block-h: 44px;
+        --ground-h: 104px;
+        --tray-h: 72px;
+      }
+
+      .topbar {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        min-height: 132px;
+        padding: 14px 12px;
+      }
+
+      .brand p {
+        white-space: normal;
+      }
+
+      .controls {
+        position: static;
+        justify-self: start;
+        gap: 6px;
+      }
+
+      .brand {
+        padding-right: 0;
+      }
+
+      .icon-button {
+        width: 38px;
+        height: 38px;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-column: 1 / -1;
+        order: 3;
+        gap: 8px;
+        font-size: 12px;
+      }
+
+      .stat {
+        min-width: 0;
+      }
+
+      .stat strong {
+        font-size: 16px;
+      }
+
+      .word-block {
+        min-width: 56px;
+        padding: 0 14px;
+        font-size: 20px;
+      }
+
+      .line-row {
+        left: 50%;
+        gap: 6px;
+      }
+
+      .input-strip {
+        grid-template-columns: 1fr 58px;
+        width: var(--input-w, calc(100vw - 20px));
+        padding: 6px;
+        border-width: 5px;
+      }
+
+      .landing-lane {
+        inset: 6px 70px 6px 6px;
+      }
+
+      #typingInput {
+        padding: 0 16px;
+        font-size: 24px;
+      }
+
+      .submit {
+        font-size: 18px;
+      }
+
+      .notice {
+        left: 14px;
+        right: 14px;
+        width: auto;
+        transform: none;
+        font-size: 13px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .line-row,
+      .word-block,
+      .particle,
+      .flash-line,
+      .input-strip {
+        animation-duration: 1ms !important;
+        transition-duration: 1ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>Wordfall Typing</h1>
+      <p>내려오는 어절을 입력해 바닥에 줄을 완성하세요.</p>
+    </div>
+    <div class="stats" aria-live="polite">
+      <div class="stat"><strong id="score">0</strong>점수</div>
+      <div class="stat"><strong id="cleared">0</strong>완성 줄</div>
+      <div class="stat"><strong id="accuracy">100%</strong>정확도</div>
+    </div>
+    <div class="controls">
+      <button class="icon-button secondary" id="pauseButton" type="button" title="일시정지" aria-label="일시정지">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"></path></svg>
+      </button>
+      <button class="icon-button" id="restartButton" type="button" title="다시 시작" aria-label="다시 시작">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v6h-6"></path><path d="M20 13a8 8 0 1 1-2.4-5.7"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="stage" id="stage">
+    <section class="sky" id="sky" aria-label="단어 블록 영역"></section>
+    <section class="ground" id="ground" aria-label="완성 줄 영역"></section>
+    <form class="input-strip" id="typeForm" autocomplete="off">
+      <div class="landing-lane" id="landingLane" aria-hidden="true"></div>
+      <input id="typingInput" type="text" inputmode="text" aria-label="단어 입력" placeholder="단어 입력" autofocus>
+      <button class="submit" type="submit">입력</button>
+    </form>
+    <div class="notice" id="notice">어절을 입력하면 블록이 아래로 떨어지고, 바닥에 닿으면 조각이 튑니다.</div>
+  </main>
+
+  <script>
+    const poem = [
+      "별 하나에 추억과 별 하나에 사랑과",
+      "별 하나에 쓸쓸함과 별 하나에 동경과",
+      "별 하나에 시와 별 하나에 어머니",
+      "검은 밤 위로 조용한 말들이 떠오른다",
+      "손끝에서 떨어진 단어들이 바닥에 줄을 만든다"
+    ];
+
+    const sky = document.getElementById("sky");
+    const ground = document.getElementById("ground");
+    const stage = document.getElementById("stage");
+    const form = document.getElementById("typeForm");
+    const landingLane = document.getElementById("landingLane");
+    const input = document.getElementById("typingInput");
+    const scoreEl = document.getElementById("score");
+    const clearedEl = document.getElementById("cleared");
+    const accuracyEl = document.getElementById("accuracy");
+    const notice = document.getElementById("notice");
+    const restartButton = document.getElementById("restartButton");
+    const pauseButton = document.getElementById("pauseButton");
+
+    let rows = [];
+    let settledRows = new Map();
+    let score = 0;
+    let cleared = 0;
+    let attempts = 0;
+    let hits = 0;
+    let paused = false;
+    let startedAt = performance.now();
+    let pauseStartedAt = 0;
+    let groundSlot = 0;
+    let animationFrame = 0;
+    let lastTickAt = 0;
+    let inputResizeTimer = 0;
+
+    function splitWords(line) {
+      return line.trim().split(/\s+/).filter(Boolean);
+    }
+
+    function makeRow(line, rowIndex) {
+      const rowEl = document.createElement("div");
+      rowEl.className = "line-row";
+      const words = splitWords(line).map((word, wordIndex) => {
+        const block = document.createElement("span");
+        block.className = "word-block";
+        block.textContent = word;
+        rowEl.appendChild(block);
+        return {
+          text: word,
+          rowIndex,
+          wordIndex,
+          block,
+          typed: false,
+          settled: false
+        };
+      });
+
+      sky.appendChild(rowEl);
+
+      return {
+        index: rowIndex,
+        el: rowEl,
+        words,
+        width: rowEl.offsetWidth,
+        currentY: -64 - rowIndex * 86,
+        speed: 34 + rowIndex * 1.8,
+        impacted: false,
+        completed: false
+      };
+    }
+
+    function resetGame() {
+      cancelAnimationFrame(animationFrame);
+      sky.innerHTML = "";
+      landingLane.innerHTML = "";
+      ground.querySelectorAll(".word-block").forEach((node) => node.remove());
+      document.querySelectorAll(".particle, .flash-line").forEach((node) => node.remove());
+      rows = poem.map(makeRow);
+      settledRows = new Map();
+      score = 0;
+      cleared = 0;
+      attempts = 0;
+      hits = 0;
+      paused = false;
+      groundSlot = 0;
+      startedAt = performance.now();
+      pauseStartedAt = 0;
+      lastTickAt = 0;
+      input.value = "";
+      input.disabled = false;
+      notice.classList.remove("hidden");
+      pauseButton.setAttribute("aria-label", "일시정지");
+      pauseButton.title = "일시정지";
+      updateStats();
+      markActiveCandidates();
+      updateInputSize();
+      input.focus();
+      animationFrame = requestAnimationFrame(tick);
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function tick(now) {
+      if (!lastTickAt) lastTickAt = now;
+      const delta = Math.min(0.05, (now - lastTickAt) / 1000);
+      lastTickAt = now;
+
+      if (!paused) {
+        rows.forEach((row) => {
+          if (row.completed) return;
+          row.currentY += row.speed * delta;
+          row.el.style.transform = `translate3d(-50%, ${row.currentY}px, 0)`;
+
+          const impactY = sky.clientHeight - row.el.offsetHeight - 4;
+          if (!row.impacted && row.currentY >= impactY) {
+            row.impacted = true;
+            spawnRowImpact(row);
+          }
+
+          if (row.currentY > sky.clientHeight + 72) {
+            row.currentY = -80 - row.index * 42 - Math.random() * 72;
+            row.impacted = false;
+            if (!input.value.trim()) updateInputSize();
+          }
+        });
+      }
+
+      animationFrame = requestAnimationFrame(tick);
+    }
+
+    function allOpenWords() {
+      return rows.flatMap((row) => row.words).filter((word) => !word.typed);
+    }
+
+    function markActiveCandidates() {
+      const value = input.value.trim();
+      const exactMatch = allOpenWords().find((word) => word.text === value);
+      rows.forEach((row) => {
+        row.words.forEach((word) => {
+          word.block.classList.toggle("active", value.length > 0 && !word.typed && word.text.startsWith(value));
+        });
+      });
+      if (exactMatch) {
+        window.clearTimeout(markActiveCandidates.matchTimer);
+        markActiveCandidates.matchTimer = window.setTimeout(() => submitWord(true), 70);
+      }
+      updateInputSize();
+    }
+
+    function getCurrentTypingRow() {
+      const value = input.value.trim();
+      const openWords = allOpenWords();
+
+      if (value) {
+        const candidates = openWords.filter((word) => word.text.startsWith(value));
+        if (candidates.length) {
+          candidates.sort((a, b) => rows[b.rowIndex].currentY - rows[a.rowIndex].currentY);
+          return rows[candidates[0].rowIndex];
+        }
+      }
+
+      return rows
+        .filter((row) => !row.completed)
+        .sort((a, b) => b.currentY - a.currentY)[0] || null;
+    }
+
+    function updateInputSize() {
+      const row = getCurrentTypingRow();
+      const viewportPadding = window.innerWidth <= 720 ? 20 : 34;
+      const maxWidth = window.innerWidth - viewportPadding;
+      const minWidth = window.innerWidth <= 720 ? 260 : 430;
+      const targetWidth = row ? row.width + (window.innerWidth <= 720 ? 94 : 132) : minWidth;
+      const width = clamp(targetWidth, Math.min(minWidth, maxWidth), maxWidth);
+      const previousWidth = form.style.getPropertyValue("--input-w");
+      const nextWidth = `${Math.round(width)}px`;
+
+      if (previousWidth === nextWidth) return;
+
+      form.style.setProperty("--input-w", nextWidth);
+      form.classList.remove("resizing");
+      void form.offsetWidth;
+      form.classList.add("resizing");
+      window.clearTimeout(inputResizeTimer);
+      inputResizeTimer = window.setTimeout(() => form.classList.remove("resizing"), 320);
+    }
+
+    function submitWord(isAuto = false) {
+      const value = input.value.trim();
+      if (!value || paused) return;
+
+      attempts += 1;
+      const match = allOpenWords().find((word) => word.text === value);
+
+      if (!match) {
+        if (isAuto) return;
+        input.value = "";
+        updateStats();
+        flashInputMiss();
+        markActiveCandidates();
+        return;
+      }
+
+      hits += 1;
+      score += Math.max(20, match.text.length * 12);
+      input.value = "";
+      dropWord(match);
+      updateStats();
+      markActiveCandidates();
+      notice.classList.add("hidden");
+    }
+
+    function dropWord(word) {
+      word.typed = true;
+      const rect = word.block.getBoundingClientRect();
+      const laneRect = landingLane.getBoundingClientRect();
+      const settled = settledRows.get(word.rowIndex) || [];
+      const offsetX = Math.min(
+        10 + settled.reduce((sum, item) => sum + item.width + 8, 0),
+        Math.max(10, laneRect.width - rect.width - 10)
+      );
+      const targetLeft = laneRect.left + offsetX;
+      const targetTop = laneRect.top + Math.max(0, (laneRect.height - rect.height) / 2);
+      const fallX = targetLeft - rect.left;
+      const fallY = targetTop - rect.top;
+
+      word.block.style.left = `${rect.left}px`;
+      word.block.style.top = `${rect.top}px`;
+      word.block.style.width = `${rect.width}px`;
+      word.block.style.setProperty("--fall-x", `${fallX}px`);
+      word.block.style.setProperty("--fall-y", `${fallY}px`);
+      word.block.classList.add("typed");
+      spawnParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, "fall");
+
+      setTimeout(() => {
+        if (!word.block.isConnected) return;
+
+        word.block.className = "word-block settled";
+        word.block.style.position = "absolute";
+        word.block.style.left = `${offsetX}px`;
+        word.block.style.top = `${Math.max(0, (laneRect.height - rect.height) / 2)}px`;
+        word.block.style.width = `${rect.width}px`;
+        word.block.style.transform = "";
+        word.block.style.removeProperty("--fall-x");
+        word.block.style.removeProperty("--fall-y");
+        landingLane.appendChild(word.block);
+        word.settled = true;
+        settled.push({ word, width: rect.width });
+        settledRows.set(word.rowIndex, settled);
+        groundSlot = (groundSlot + 1) % 6;
+        spawnParticles(targetLeft + rect.width / 2, targetTop + rect.height, "impact");
+        checkLineClear(word.rowIndex);
+        updateInputSize();
+      }, 900);
+    }
+
+    function spawnRowImpact(row) {
+      const openBlocks = row.words
+        .filter((word) => !word.typed)
+        .map((word) => word.block)
+        .filter((block) => block.isConnected);
+
+      if (!openBlocks.length) return;
+
+      const skyRect = sky.getBoundingClientRect();
+      const rowRect = row.el.getBoundingClientRect();
+      const impactY = Math.min(rowRect.bottom, skyRect.bottom) - 2;
+      spawnParticles(rowRect.left + rowRect.width / 2, impactY, "rowImpact");
+
+      openBlocks.forEach((block, index) => {
+        if (index % 2 !== 0 && openBlocks.length > 3) return;
+        const rect = block.getBoundingClientRect();
+        spawnParticles(rect.left + rect.width / 2, Math.min(rect.bottom, skyRect.bottom) - 2, "rowImpactSmall");
+      });
+    }
+
+    function checkLineClear(rowIndex) {
+      const row = rows[rowIndex];
+      if (!row || row.completed) return;
+      const done = row.words.every((word) => word.settled);
+      if (!done) return;
+
+      row.completed = true;
+      row.el.remove();
+      cleared += 1;
+      score += 100;
+      updateStats();
+      clearSettledRow(rowIndex);
+    }
+
+    function clearSettledRow(rowIndex) {
+      const settled = settledRows.get(rowIndex) || [];
+      if (!settled.length) return;
+
+      const bounds = settled.map(({ word }) => word.block.getBoundingClientRect());
+      const left = Math.min(...bounds.map((rect) => rect.left));
+      const right = Math.max(...bounds.map((rect) => rect.right));
+      const top = Math.min(...bounds.map((rect) => rect.top));
+
+      const flash = document.createElement("div");
+      flash.className = "flash-line";
+      flash.style.left = `${left}px`;
+      flash.style.top = `${top}px`;
+      flash.style.width = `${right - left}px`;
+      document.body.appendChild(flash);
+
+      settled.forEach(({ word }, index) => {
+        const rect = word.block.getBoundingClientRect();
+        word.block.style.animationDelay = `${index * 28}ms`;
+        word.block.classList.add("clearing");
+        spawnParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, "clear");
+        setTimeout(() => word.block.remove(), 520 + index * 28);
+      });
+
+      setTimeout(() => flash.remove(), 520);
+      settledRows.delete(rowIndex);
+
+      if (cleared === rows.length) {
+        setTimeout(showWin, 680);
+      }
+    }
+
+    function showWin() {
+      notice.textContent = "모든 줄을 완성했습니다. 다시 시작 버튼으로 새 판을 열 수 있습니다.";
+      notice.classList.remove("hidden");
+      input.disabled = true;
+    }
+
+    function spawnParticles(x, y, type) {
+      const colors = type === "clear"
+        ? ["#ffd0dc", "#c8efd9", "#b9d8ff", "#fff2b8"]
+        : type === "impact" || type === "rowImpact" || type === "rowImpactSmall"
+          ? ["#b9d8ff", "#ffd0dc", "#efefea"]
+          : ["#b9d8ff", "#d8dcff", "#f3d6ff"];
+      const count = type === "clear" ? 28 : type === "rowImpact" ? 30 : type === "impact" ? 22 : type === "rowImpactSmall" ? 10 : 12;
+      const spread = type === "clear" ? 92 : type === "rowImpact" ? 86 : type === "impact" ? 62 : type === "rowImpactSmall" ? 40 : 42;
+
+      for (let i = 0; i < count; i += 1) {
+        const particle = document.createElement("span");
+        const angle = (Math.PI * 2 * i) / count;
+        const distance = 20 + Math.random() * spread;
+        const size = type === "clear" ? 8 + Math.random() * 14 : 7 + Math.random() * 12;
+        particle.className = "particle";
+        particle.style.left = `${x}px`;
+        particle.style.top = `${y}px`;
+        particle.style.background = colors[i % colors.length];
+        particle.style.setProperty("--size", `${size}px`);
+        particle.style.setProperty("--dx", `${Math.cos(angle) * distance}px`);
+        particle.style.setProperty("--dy", `${Math.sin(angle) * distance - (type === "impact" || type === "rowImpact" || type === "rowImpactSmall" ? 36 : 18)}px`);
+        particle.style.setProperty("--spin", `${(Math.random() > 0.5 ? 1 : -1) * (120 + Math.random() * 260)}deg`);
+        document.body.appendChild(particle);
+        setTimeout(() => particle.remove(), 680);
+      }
+    }
+
+    function flashInputMiss() {
+      input.style.boxShadow = "0 0 0 4px rgba(255, 208, 220, 0.7)";
+      setTimeout(() => {
+        input.style.boxShadow = "";
+      }, 160);
+    }
+
+    function updateStats() {
+      scoreEl.textContent = String(score);
+      clearedEl.textContent = String(cleared);
+      accuracyEl.textContent = attempts === 0 ? "100%" : `${Math.round((hits / attempts) * 100)}%`;
+    }
+
+    function togglePause() {
+      paused = !paused;
+      if (paused) {
+        pauseStartedAt = performance.now();
+        input.blur();
+        pauseButton.setAttribute("aria-label", "계속");
+        pauseButton.title = "계속";
+        notice.textContent = "일시정지 중입니다.";
+        notice.classList.remove("hidden");
+        return;
+      }
+
+      startedAt += performance.now() - pauseStartedAt;
+      pauseButton.setAttribute("aria-label", "일시정지");
+      pauseButton.title = "일시정지";
+      notice.textContent = "어절을 입력하면 블록이 아래로 떨어지고, 바닥에 닿으면 조각이 튑니다.";
+      notice.classList.add("hidden");
+      input.focus();
+    }
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitWord();
+    });
+
+    input.addEventListener("input", markActiveCandidates);
+    restartButton.addEventListener("click", resetGame);
+    pauseButton.addEventListener("click", togglePause);
+    window.addEventListener("resize", resetGame);
+
+    resetGame();
+  </script>
+</body>
+</html>
